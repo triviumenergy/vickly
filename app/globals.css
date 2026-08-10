@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Fuente de la verdad para colores y tipografía.
+  Estos valores vienen directo del hub del proyecto (paleta + tipografía).
+  Para cambiar un color o fuente en toda la app: se edita ACÁ, un solo lugar.
+*/
+:root {
+  --cream: #f7f3cf;
+  --mint: #c2e4cb;
+  --teal-bright: #36cecc;
+  --teal: #27b1bf;
+  --teal-dark: #176585;
+
+  --ink: #0f2b33;
+  --ink-soft: #3c5a61;
+  --line: rgba(23, 101, 133, 0.14);
+  --bg: #fcfbf3;
+  --panel: #ffffff;
+
+  --radius: 14px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+}
