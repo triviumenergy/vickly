@@ -2,10 +2,6 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import LogoutButton from "./logout-button";
 
-// Este dashboard es todavía un placeholder: sirve para confirmar que
-// el login funciona y que el workspace se creó solo al registrarse.
-// El dashboard real (proyectos, calendario, reportes) se construye
-// en un paso aparte.
 export default async function DashboardPage() {
   const supabase = await createClient();
 
@@ -19,9 +15,13 @@ export default async function DashboardPage() {
 
   const { data: workspace } = await supabase
     .from("workspaces")
-    .select("id, name, created_at")
+    .select("id, name, onboarding_completed, created_at")
     .eq("owner_id", user.id)
     .single();
+
+  if (workspace && !workspace.onboarding_completed) {
+    redirect("/onboarding");
+  }
 
   return (
     <main className="min-h-screen px-6 py-10 max-w-2xl mx-auto">
