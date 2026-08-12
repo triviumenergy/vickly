@@ -4,13 +4,30 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import {
+  UnsavedChangesProvider,
+  useUnsavedChanges,
+} from "./unsaved-changes-context";
 
 type NavItem = {
   href: string;
   label: string;
 };
 
-export default function DashboardShell({
+export default function DashboardShell(props: {
+  workspaceName: string;
+  userEmail: string;
+  showMembers: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <UnsavedChangesProvider>
+      <DashboardShellInner {...props} />
+    </UnsavedChangesProvider>
+  );
+}
+
+function DashboardShellInner({
   workspaceName,
   userEmail,
   showMembers,
@@ -24,6 +41,7 @@ export default function DashboardShell({
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const { dirty, setDirty } = useUnsavedChanges();
 
   const navItems: NavItem[] = [
     { href: "/dashboard", label: "Inicio" },
@@ -35,7 +53,27 @@ export default function DashboardShell({
     { href: "/dashboard/mi-plan", label: "Mi plan" },
   ];
 
+  // Devuelve true si está OK seguir navegando (no hay cambios sin
+  // guardar, o el usuario confirmó que quiere descartarlos).
+  function confirmLeave(): boolean {
+    if (!dirty) return true;
+    const ok = window.confirm(
+      "Hay cambios sin guardar. ¿Salir de todos modos?"
+    );
+    if (ok) setDirty(false);
+    return ok;
+  }
+
+  function handleNavClick(e: React.MouseEvent) {
+    if (!confirmLeave()) {
+      e.preventDefault();
+    } else {
+      setMenuOpen(false);
+    }
+  }
+
   async function handleLogout() {
+    if (!confirmLeave()) return;
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");
@@ -76,7 +114,7 @@ export default function DashboardShell({
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={() => setMenuOpen(false)}
+                onClick={handleNavClick}
                 className={`block px-3 py-2 rounded text-sm font-medium mb-1 transition-colors ${
                   active
                     ? "bg-white/15 text-white"

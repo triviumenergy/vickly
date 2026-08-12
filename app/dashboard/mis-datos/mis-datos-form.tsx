@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useUnsavedChanges } from "../unsaved-changes-context";
 
 type WorkspaceData = {
   id: string;
@@ -18,19 +19,20 @@ export default function MisDatosForm({
   workspace: WorkspaceData;
 }) {
   const supabase = createClient();
+  const { dirty, setDirty } = useUnsavedChanges();
 
   const [phone, setPhone] = useState(workspace.phone ?? "");
   const [companyName, setCompanyName] = useState(
     workspace.company_name ?? ""
   );
   const [legalName, setLegalName] = useState(workspace.legal_name ?? "");
-  const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Aviso nativo del navegador si intenta cerrar/recargar con
-  // cambios sin guardar (punto 10 del prompt original).
+  // Aviso nativo del navegador si cierra la pestaña o recarga con
+  // cambios sin guardar. La navegación DENTRO de la app (sidebar) la
+  // cubre el contexto compartido, no este efecto.
   useEffect(() => {
     function handleBeforeUnload(e: BeforeUnloadEvent) {
       if (dirty) {
@@ -42,6 +44,13 @@ export default function MisDatosForm({
     return () =>
       window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [dirty]);
+
+  // Si se sale del módulo sin guardar (confirmando el aviso), o al
+  // desmontar el componente, dejamos el estado global limpio.
+  useEffect(() => {
+    return () => setDirty(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function markDirty<T>(setter: (v: T) => void) {
     return (value: T) => {
