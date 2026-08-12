@@ -1,51 +1,48 @@
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import LogoutButton from "./logout-button";
+import TimeTracker from "./time-tracker";
 
-export default async function DashboardPage() {
+export default async function InicioPage() {
   const supabase = await createClient();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect("/login");
-  }
-
   const { data: workspace } = await supabase
     .from("workspaces")
-    .select("id, name, onboarding_completed, created_at")
-    .eq("owner_id", user.id)
+    .select("id, name")
+    .eq("owner_id", user!.id)
     .single();
 
-  if (workspace && !workspace.onboarding_completed) {
-    redirect("/onboarding");
-  }
+  const { data: projects } = await supabase
+    .from("projects")
+    .select("id, name")
+    .eq("workspace_id", workspace!.id)
+    .eq("is_active", true)
+    .order("created_at", { ascending: true });
+
+  const { data: members } = await supabase
+    .from("workspace_members")
+    .select("id, full_name")
+    .eq("workspace_id", workspace!.id)
+    .order("created_at", { ascending: true });
+
+  const { data: entries } = await supabase
+    .from("time_entries")
+    .select("id, entry_date, duration_minutes, note, project_id, member_id")
+    .in("project_id", (projects ?? []).map((p) => p.id))
+    .order("entry_date", { ascending: false })
+    .limit(20);
 
   return (
-    <main className="min-h-screen px-6 py-10 max-w-2xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="font-display text-2xl font-extrabold">Dashboard</h1>
-        <LogoutButton />
-      </div>
+    <div>
+      <h1 className="font-display text-2xl font-extrabold mb-6">Inicio</h1>
 
-      <div className="bg-panel border border-line rounded p-6">
-        <p className="text-ink-soft mb-1">Sesión iniciada como</p>
-        <p className="font-medium mb-4">{user.email}</p>
-
-        {workspace ? (
-          <>
-            <p className="text-ink-soft mb-1">Tu workspace</p>
-            <p className="font-medium">{workspace.name}</p>
-          </>
-        ) : (
-          <p className="text-red-600 text-sm">
-            No se encontró un workspace para este usuario — revisar el
-            trigger en Supabase.
-          </p>
-        )}
-      </div>
-    </main>
+      <TimeTracker
+        projects={projects ?? []}
+        members={members ?? []}
+        initialEntries={entries ?? []}
+      />
+    </div>
   );
 }
