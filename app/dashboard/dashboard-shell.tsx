@@ -18,6 +18,7 @@ export default function DashboardShell(props: {
   workspaceName: string;
   userEmail: string;
   showMembers: boolean;
+  isAdmin: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -31,11 +32,13 @@ function DashboardShellInner({
   workspaceName,
   userEmail,
   showMembers,
+  isAdmin,
   children,
 }: {
   workspaceName: string;
   userEmail: string;
   showMembers: boolean;
+  isAdmin: boolean;
   children: React.ReactNode;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -51,10 +54,9 @@ function DashboardShellInner({
       : []),
     { href: "/dashboard/mis-datos", label: "Mis datos" },
     { href: "/dashboard/mi-plan", label: "Mi plan" },
+    ...(isAdmin ? [{ href: "/dashboard/admin", label: "Admin" }] : []),
   ];
 
-  // Devuelve true si está OK seguir navegando (no hay cambios sin
-  // guardar, o el usuario confirmó que quiere descartarlos).
   function confirmLeave(): boolean {
     if (!dirty) return true;
     const ok = window.confirm(
@@ -82,7 +84,6 @@ function DashboardShellInner({
 
   return (
     <div className="min-h-screen sm:flex">
-      {/* Topbar mobile */}
       <div className="sm:hidden flex items-center justify-between px-4 py-3 border-b border-line bg-panel">
         <span className="font-display font-extrabold">Vickly</span>
         <button
@@ -94,7 +95,6 @@ function DashboardShellInner({
         </button>
       </div>
 
-      {/* Sidebar */}
       <aside
         className={`${
           menuOpen ? "block" : "hidden"
@@ -140,7 +140,6 @@ function DashboardShellInner({
         </div>
       </aside>
 
-      {/* Contenido */}
       <main className="flex-1 min-w-0 px-6 py-8">{children}</main>
     </div>
   );

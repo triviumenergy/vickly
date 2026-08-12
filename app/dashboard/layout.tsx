@@ -2,10 +2,6 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import DashboardShell from "./dashboard-shell";
 
-// Este layout envuelve /dashboard y todas sus subpáginas
-// (/dashboard/proyectos, /dashboard/miembros, etc.). Acá vive la
-// validación de sesión y onboarding para que no haya que repetirla
-// en cada página nueva.
 export default async function DashboardLayout({
   children,
 }: {
@@ -40,11 +36,14 @@ export default async function DashboardLayout({
     .select("id", { count: "exact", head: true })
     .eq("workspace_id", workspace.id);
 
+  const isAdmin = user.email === process.env.ADMIN_EMAIL;
+
   return (
     <DashboardShell
       workspaceName={workspace.name}
       userEmail={user.email ?? ""}
       showMembers={(membersCount ?? 0) > 0}
+      isAdmin={isAdmin}
     >
       {children}
     </DashboardShell>
