@@ -9,21 +9,33 @@ type Project = {
   is_active: boolean;
 };
 
+type Member = {
+  id: string;
+  full_name: string;
+};
+
 export default function ProjectsManager({
   workspaceId,
   initialProjects,
+  members,
+  initialAssignments,
 }: {
   workspaceId: string;
   initialProjects: Project[];
+  members: Member[];
+  initialAssignments: Record<string, string[]>;
 }) {
   const supabase = createClient();
   const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [assignments, setAssignments] =
+    useState<Record<string, string[]>>(initialAssignments);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   function flashSaved() {
     setSavedFlash(true);
@@ -104,6 +116,44 @@ export default function ProjectsManager({
     flashSaved();
   }
 
+  async function toggleAssignment(projectId: string, memberId: string) {
+    const current = assignments[projectId] ?? [];
+    const isAssigned = current.includes(memberId);
+
+    if (isAssigned) {
+      const { error } = await supabase
+        .from("project_assignments")
+        .delete()
+        .eq("project_id", projectId)
+        .eq("member_id", memberId);
+
+      if (error) {
+        setError(error.message);
+        return;
+      }
+
+      setAssignments((prev) => ({
+        ...prev,
+        [projectId]: current.filter((id) => id !== memberId),
+      }));
+    } else {
+      const { error } = await supabase
+        .from("project_assignments")
+        .insert({ project_id: projectId, member_id: memberId });
+
+      if (error) {
+        setError(error.message);
+        return;
+      }
+
+      setAssignments((prev) => ({
+        ...prev,
+        [projectId]: [...current, memberId],
+      }));
+    }
+    flashSaved();
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -115,10 +165,7 @@ export default function ProjectsManager({
         )}
       </div>
 
-      <form
-        onSubmit={handleCreate}
-        className="flex gap-2 mb-6 max-w-md"
-      >
+      <form onSubmit={handleCreate} className="flex gap-2 mb-6 max-w-md">
         <input
           type="text"
           value={newName}
@@ -143,46 +190,86 @@ export default function ProjectsManager({
         </p>
       ) : (
         <div className="bg-panel border border-line rounded divide-y divide-line max-w-2xl">
-          {projects.map((project) => (
-            <div
-              key={project.id}
-              className="px-5 py-3 flex items-center justify-between gap-4"
-            >
-              {editingId === project.id ? (
-                <input
-                  autoFocus
-                  value={editingValue}
-                  onChange={(e) => setEditingValue(e.target.value)}
-                  onBlur={() => saveEditing(project.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") saveEditing(project.id);
-                    if (e.key === "Escape") setEditingId(null);
-                  }}
-                  className="flex-1 border border-teal rounded px-2 py-1 outline-none"
-                />
-              ) : (
-                <button
-                  onClick={() => startEditing(project)}
-                  className={`flex-1 text-left font-medium ${
-                    project.is_active ? "" : "text-ink-soft line-through"
-                  }`}
-                >
-                  {project.name}
-                </button>
-              )}
+          {projects.map((project) => {
+            const assignedIds = assignments[project.id] ?? [];
+            const isExpanded = expandedId === project.id;
 
-              <button
-                onClick={() => toggleActive(project)}
-                className={`text-xs font-bold px-3 py-1 rounded-full flex-shrink-0 transition-colors ${
-                  project.is_active
-                    ? "bg-mint text-teal-dark"
-                    : "bg-line text-ink-soft"
-                }`}
-              >
-                {project.is_active ? "Activo" : "Inactivo"}
-              </button>
-            </div>
-          ))}
+            return (
+              <div key={project.id} className="px-5 py-3">
+                <div className="flex items-center justify-between gap-4">
+                  {editingId === project.id ? (
+                    <input
+                      autoFocus
+                      value={editingValue}
+                      onChange={(e) => setEditingValue(e.target.value)}
+                      onBlur={() => saveEditing(project.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveEditing(project.id);
+                        if (e.key === "Escape") setEditingId(null);
+                      }}
+                      className="flex-1 border border-teal rounded px-2 py-1 outline-none"
+                    />
+                  ) : (
+                    <button
+                      onClick={() => startEditing(project)}
+                      className={`flex-1 text-left font-medium ${
+                        project.is_active ? "" : "text-ink-soft line-through"
+                      }`}
+                    >
+                      {project.name}
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => toggleActive(project)}
+                    className={`text-xs font-bold px-3 py-1 rounded-full flex-shrink-0 transition-colors ${
+                      project.is_active
+                        ? "bg-mint text-teal-dark"
+                        : "bg-line text-ink-soft"
+                    }`}
+                  >
+                    {project.is_active ? "Activo" : "Inactivo"}
+                  </button>
+                </div>
+
+                {members.length > 0 && (
+                  <>
+                    <button
+                      onClick={() =>
+                        setExpandedId(isExpanded ? null : project.id)
+                      }
+                      className="text-xs text-teal-dark font-medium mt-2"
+                    >
+                      {isExpanded
+                        ? "Ocultar miembros asignados"
+                        : `Miembros asignados (${assignedIds.length})`}
+                    </button>
+
+                    {isExpanded && (
+                      <div className="mt-3 pl-1 space-y-2">
+                        {members.map((member) => (
+                          <label
+                            key={member.id}
+                            className="flex items-center gap-2 text-sm cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={assignedIds.includes(member.id)}
+                              onChange={() =>
+                                toggleAssignment(project.id, member.id)
+                              }
+                              className="accent-teal"
+                            />
+                            {member.full_name}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

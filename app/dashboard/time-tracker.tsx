@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Project = { id: string; name: string };
@@ -25,10 +25,12 @@ function minutesToLabel(minutes: number) {
 export default function TimeTracker({
   projects,
   members,
+  assignments,
   initialEntries,
 }: {
   projects: Project[];
   members: Member[];
+  assignments: Record<string, string[]>;
   initialEntries: TimeEntry[];
 }) {
   const supabase = createClient();
@@ -44,9 +46,19 @@ export default function TimeTracker({
   const [error, setError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
 
+  const assignedMembers = useMemo(() => {
+    const assignedIds = assignments[projectId] ?? [];
+    return members.filter((m) => assignedIds.includes(m.id));
+  }, [projectId, assignments, members]);
+
   function flashSaved() {
     setSavedFlash(true);
     setTimeout(() => setSavedFlash(false), 2000);
+  }
+
+  function handleProjectChange(newProjectId: string) {
+    setProjectId(newProjectId);
+    setMemberId(""); // vuelve a "Yo" al cambiar de proyecto
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -159,7 +171,7 @@ export default function TimeTracker({
             </label>
             <select
               value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
+              onChange={(e) => handleProjectChange(e.target.value)}
               className="w-full border border-line rounded px-3 py-2 outline-none focus:border-teal"
             >
               {projects.map((p) => (
@@ -181,12 +193,18 @@ export default function TimeTracker({
                 className="w-full border border-line rounded px-3 py-2 outline-none focus:border-teal"
               >
                 <option value="">Yo</option>
-                {members.map((m) => (
+                {assignedMembers.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.full_name}
                   </option>
                 ))}
               </select>
+              {assignedMembers.length === 0 && (
+                <p className="text-xs text-ink-soft mt-1">
+                  Nadie más está asignado a este proyecto todavía —
+                  asignalo desde el módulo Proyectos.
+                </p>
+              )}
             </div>
           )}
 

@@ -27,10 +27,23 @@ export default async function InicioPage() {
     .eq("workspace_id", workspace!.id)
     .order("created_at", { ascending: true });
 
+  const projectIds = (projects ?? []).map((p) => p.id);
+
+  const { data: assignmentRows } = await supabase
+    .from("project_assignments")
+    .select("project_id, member_id")
+    .in("project_id", projectIds.length > 0 ? projectIds : [""]);
+
+  const assignments: Record<string, string[]> = {};
+  (assignmentRows ?? []).forEach((row) => {
+    if (!assignments[row.project_id]) assignments[row.project_id] = [];
+    assignments[row.project_id].push(row.member_id);
+  });
+
   const { data: entries } = await supabase
     .from("time_entries")
     .select("id, entry_date, duration_minutes, note, project_id, member_id")
-    .in("project_id", (projects ?? []).map((p) => p.id))
+    .in("project_id", projectIds.length > 0 ? projectIds : [""])
     .order("entry_date", { ascending: false })
     .limit(20);
 
@@ -41,6 +54,7 @@ export default async function InicioPage() {
       <TimeTracker
         projects={projects ?? []}
         members={members ?? []}
+        assignments={assignments}
         initialEntries={entries ?? []}
       />
     </div>

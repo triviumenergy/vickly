@@ -20,10 +20,31 @@ export default async function ProyectosPage() {
     .eq("workspace_id", workspace!.id)
     .order("created_at", { ascending: true });
 
+  const { data: members } = await supabase
+    .from("workspace_members")
+    .select("id, full_name")
+    .eq("workspace_id", workspace!.id)
+    .order("created_at", { ascending: true });
+
+  const projectIds = (projects ?? []).map((p) => p.id);
+
+  const { data: assignmentRows } = await supabase
+    .from("project_assignments")
+    .select("project_id, member_id")
+    .in("project_id", projectIds.length > 0 ? projectIds : [""]);
+
+  const assignments: Record<string, string[]> = {};
+  (assignmentRows ?? []).forEach((row) => {
+    if (!assignments[row.project_id]) assignments[row.project_id] = [];
+    assignments[row.project_id].push(row.member_id);
+  });
+
   return (
     <ProjectsManager
       workspaceId={workspace!.id}
       initialProjects={projects ?? []}
+      members={members ?? []}
+      initialAssignments={assignments}
     />
   );
 }
