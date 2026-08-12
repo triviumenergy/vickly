@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import TimeTracker from "./time-tracker";
+import CalendarView from "./calendar-view";
 
 export default async function InicioPage() {
   const supabase = await createClient();
@@ -14,7 +15,13 @@ export default async function InicioPage() {
     .eq("owner_id", user!.id)
     .single();
 
-  const { data: projects } = await supabase
+  const { data: allProjects } = await supabase
+    .from("projects")
+    .select("id, name")
+    .eq("workspace_id", workspace!.id)
+    .order("created_at", { ascending: true });
+
+  const { data: activeProjectsFull } = await supabase
     .from("projects")
     .select("id, name")
     .eq("workspace_id", workspace!.id)
@@ -27,7 +34,7 @@ export default async function InicioPage() {
     .eq("workspace_id", workspace!.id)
     .order("created_at", { ascending: true });
 
-  const projectIds = (projects ?? []).map((p) => p.id);
+  const projectIds = (allProjects ?? []).map((p) => p.id);
 
   const { data: assignmentRows } = await supabase
     .from("project_assignments")
@@ -43,7 +50,6 @@ export default async function InicioPage() {
   const { data: entries } = await supabase
     .from("time_entries")
     .select("id, entry_date, duration_minutes, note, project_id, member_id")
-    .in("project_id", projectIds.length > 0 ? projectIds : [""])
     .order("entry_date", { ascending: false })
     .limit(20);
 
@@ -52,11 +58,18 @@ export default async function InicioPage() {
       <h1 className="font-display text-2xl font-extrabold mb-6">Inicio</h1>
 
       <TimeTracker
-        projects={projects ?? []}
+        projects={activeProjectsFull ?? []}
         members={members ?? []}
         assignments={assignments}
         initialEntries={entries ?? []}
       />
+
+      <div className="mt-8">
+        <h2 className="font-display font-bold mb-3">
+          Calendario de horas
+        </h2>
+        <CalendarView allProjects={allProjects ?? []} />
+      </div>
     </div>
   );
 }
